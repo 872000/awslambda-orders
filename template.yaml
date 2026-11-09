@@ -1,0 +1,66 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Serverless orders API — one Lambda function (Python 3.12) backed by a
+  DynamoDB table, fronted by API Gateway. See README.md for the API design
+  and deploy steps.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 10
+    MemorySize: 128
+    Environment:
+      Variables:
+        ORDERS_TABLE: !Ref OrdersTable
+
+Resources:
+  OrdersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${AWS::StackName}-orders"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: order_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: order_id
+          KeyType: HASH
+
+  OrdersFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: handler.lambda_handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref OrdersTable
+      Events:
+        CreateOrder:
+          Type: Api
+          Properties:
+            Path: /orders
+            Method: post
+        GetOrder:
+          Type: Api
+          Properties:
+            Path: /orders/{order_id}
+            Method: get
+        ListOrders:
+          Type: Api
+          Properties:
+            Path: /orders
+            Method: get
+        UpdateOrderStatus:
+          Type: Api
+          Properties:
+            Path: /orders/{order_id}
+            Method: patch
+
+Outputs:
+  ApiUrl:
+    Description: Base URL of the orders API
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/orders"
+  OrdersTableName:
+    Description: DynamoDB table holding the orders
+    Value: !Ref OrdersTable
