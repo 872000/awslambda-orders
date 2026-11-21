@@ -6,6 +6,7 @@ Everything runs against FakeDynamoDBTable — no boto3, no AWS account,
 no credentials, no network.
 """
 
+import base64
 import json
 import os
 import sys
@@ -98,6 +99,22 @@ class HandlerTestCase(unittest.TestCase):
             }
         )
         self.assertEqual(response["statusCode"], 400)
+
+    def test_create_accepts_base64_encoded_body(self):
+        payload = valid_order()
+        encoded = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
+        response = handler.lambda_handler(
+            {
+                "httpMethod": "POST",
+                "path": "/orders",
+                "body": encoded,
+                "isBase64Encoded": True,
+            }
+        )
+        self.assertEqual(response["statusCode"], 201)
+        body = json.loads(response["body"])
+        self.assertEqual(body["customer_id"], "cust-1")
+        self.assertEqual(body["total_cents"], 3999)
 
     def test_create_rejects_empty_body(self):
         status, body = self.call("POST", "/orders", body=None)
